@@ -36,7 +36,7 @@ namespace FullAutoStrut
         {
             //print("Start()");
             GameEvents.onEditorPartEvent.Add(OnPartEvent);
-            GameEvents.onEditorShipModified.Add(OnShipModified);
+            //GameEvents.onEditorShipModified.Add(OnShipModified);
         }
 
         /// <summary>
@@ -46,9 +46,10 @@ namespace FullAutoStrut
         {
             //print("OnDisable()");
             GameEvents.onEditorPartEvent.Remove(OnPartEvent);
-            GameEvents.onEditorShipModified.Remove(OnShipModified);
+            //GameEvents.onEditorShipModified.Remove(OnShipModified);
         }
 
+        /*
         /// <summary>
         ///     Called when [ship modified].
         /// </summary>
@@ -61,7 +62,7 @@ namespace FullAutoStrut
             sc.parts[0].autoStrutMode = Part.AutoStrutMode.Heaviest;
             sc.parts[0].UpdateAutoStrut();
         }
-
+        //*/
 
         /// <summary>
         ///     Called when a part is attached.
