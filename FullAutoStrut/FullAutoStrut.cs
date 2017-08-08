@@ -20,8 +20,10 @@
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
- */ 
+ */
 
+using System;
+using System.Diagnostics;
 using UnityEngine;
 
 namespace FullAutoStrut
@@ -29,14 +31,27 @@ namespace FullAutoStrut
     [KSPAddon(KSPAddon.Startup.EditorAny, false)]
     public class FullAutoStrut : MonoBehaviour
     {
+        [Conditional("DEBUG")]
+        private void Log(string m)
+        {
+            print(m);
+        }
+
+
         /// <summary>
         ///     Called when this module is activated.
         /// </summary>
         public void Awake()
         {
-            //print("Start()");
-            GameEvents.onEditorPartEvent.Add(OnPartEvent);
-            //GameEvents.onEditorShipModified.Add(OnShipModified);
+            try
+            {
+                Log("[FAS] Awake()");
+                GameEvents.onEditorPartEvent.Add(OnPartEvent);
+            }
+            catch (Exception e)
+            {
+                print("[FAS] " + e);
+            }
         }
 
         /// <summary>
@@ -44,73 +59,71 @@ namespace FullAutoStrut
         /// </summary>
         public void OnDisable()
         {
-            //print("OnDisable()");
-            GameEvents.onEditorPartEvent.Remove(OnPartEvent);
-            //GameEvents.onEditorShipModified.Remove(OnShipModified);
+            try
+            {
+                //print("OnDisable()");
+                GameEvents.onEditorPartEvent.Remove(OnPartEvent);
+            }
+            catch (Exception e)
+            {
+                print("[FAS] " + e);
+            }
         }
-
-        /*
-        /// <summary>
-        ///     Called when [ship modified].
-        /// </summary>
-        /// <param name="sc">The sc.</param>
-        private static void OnShipModified(ShipConstruct sc)
-        {
-            if (sc.parts.Count != 1)
-                return;
-
-            sc.parts[0].autoStrutMode = Part.AutoStrutMode.Heaviest;
-            sc.parts[0].UpdateAutoStrut();
-        }
-        //*/
 
         /// <summary>
         ///     Called when a part is attached.
         /// </summary>
         /// <param name="ct">The ct.</param>
         /// <param name="p">The p.</param>
-        private static void OnPartEvent(ConstructionEventType ct, Part p)
+        private void OnPartEvent(ConstructionEventType ct, Part p)
         {
-            if (ct != ConstructionEventType.PartAttached)
-                return;
-
-            //print("OnPartAttached");
-
-            if (p == null)
+            try
             {
-                //print("Part is null");
-                return;
-            }
+                if (ct != ConstructionEventType.PartAttached)
+                    return;
 
-            if (!p.AllowAutoStruts())
-            {
-                //print("AutoStruts is disallowed");
-                return;
-            }
+                Log("[FAS] OnPartAttached");
 
-            if (p.autoStrutMode != Part.AutoStrutMode.Off)
-            {
-                //print("AutoStrut is already set");
-                return;
-            }
+                if (p == null)
+                {
+                    Log("[FAS] Part is null");
+                    return;
+                }
 
-            if (p.parent == null)
-            {
-                //print("part's parent is null");
-                return;
-            }
+                if (!p.AllowAutoStruts())
+                {
+                    Log("[FAS] AutoStruts is disallowed");
+                    return;
+                }
 
-            if (p.parent.parent == null)
-            {
-                //print("part's grandparent is null"); // root part?
-                p.autoStrutMode = Part.AutoStrutMode.Root;
+                if (p.autoStrutMode != Part.AutoStrutMode.Off)
+                {
+                    Log("[FAS] AutoStrut is already set");
+                    return;
+                }
+
+                if (p.parent == null)
+                {
+                    Log("[FAS] Placed part's parent is null, ignoring.");
+                    return;
+                }
+
+                if (p.parent.parent == null)
+                {
+                    Log("[FAS] Placed part's grandparent is null, setting AutoStrut to Root Part."); // root part?
+                    p.autoStrutMode = Part.AutoStrutMode.Root;
+                    p.UpdateAutoStrut();
+                    return;
+                } 
+
+                Log("[FAS] Defaulting AutoStrut to GrandParent");
+                p.autoStrutMode = Part.AutoStrutMode.Grandparent;
                 p.UpdateAutoStrut();
-                return;
             }
-
-            //print("Defaulting AutoStrut to GrandParent");
-            p.autoStrutMode = Part.AutoStrutMode.Grandparent;
-            p.UpdateAutoStrut();
+            catch (Exception e)
+            {
+                print("[FAS] " + e);
+            }
         }
     }
 }
