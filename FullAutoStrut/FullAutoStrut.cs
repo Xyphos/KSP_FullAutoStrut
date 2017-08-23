@@ -106,7 +106,24 @@ namespace FullAutoStrut
                 {
                     Log("[FAS] Placed part's parent is null, ignoring.");
                     return;
+                } 
+
+
+
+                // Added Infernal Robotics Comaptibility - Crawl the parts hierarchy to check for robotic parents
+                var p2 = p;
+                while (p2 != null)
+                {
+                    if (p2.Modules.Contains("MuMechToggle"))
+                    {
+                        Log("[FAS] Placed part is a robotic attachment, ignoring.");
+                        return;
+                    }
+
+                    p2 = p2.parent; // next itteration
                 }
+                
+
 
                 if (p.parent.parent == null)
                 {

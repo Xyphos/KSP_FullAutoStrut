@@ -68,6 +68,8 @@
 COPY "$(TargetPath)" "$(SolutionDir)GameData\XyphosAerospace\Plugins\$(ProjectName)\"
 
 XCOPY /Y/S "$(SolutionDir)GameData\*.*" "C:\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program - Copy\GameData\"
+
+"C:\Program Files\7-Zip\7z.exe" a -tzip -r -y "$(SolutionDir)$(ProjectName).zip" "$(SolutionDir)GameData\"
 </PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
