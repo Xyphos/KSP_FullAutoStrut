@@ -71,7 +71,7 @@ namespace FullAutoStrut
         }
 
         /// <summary>
-        ///     Called when a part is attached.
+        ///     Called when a part does something.
         /// </summary>
         /// <param name="ct">The ct.</param>
         /// <param name="p">The p.</param>
@@ -79,29 +79,49 @@ namespace FullAutoStrut
         {
             try
             {
+                // when removed, reset the strut mode to OFF so it can be properly set again when reattached.
+                if (ct == ConstructionEventType.PartDetached)
+                {
+                    switch (p.autoStrutMode)
+                    {
+                        case Part.AutoStrutMode.Grandparent:
+                        case Part.AutoStrutMode.Root:
+                        case Part.AutoStrutMode.Heaviest:
+                            SetAS(p, Part.AutoStrutMode.Off);
+                            break;
+                    }
+
+                    return;
+                }
+
+                // if the event isn't detach or attach, stop here.
                 if (ct != ConstructionEventType.PartAttached)
                     return;
 
                 Log("[FAS] OnPartAttached");
 
+                // check for null
                 if (p == null)
                 {
                     Log("[FAS] Part is null");
                     return;
                 }
 
+                // check if allowed
                 if (!p.AllowAutoStruts())
                 {
                     Log("[FAS] AutoStruts is disallowed");
                     return;
                 }
 
+                // some parts have their autostrut already set by default, do not override this.
                 if (p.autoStrutMode != Part.AutoStrutMode.Off)
                 {
                     Log("[FAS] AutoStrut is already set");
                     return;
                 }
 
+                // ignore parts with null parents
                 if (p.parent == null)
                 {
                     Log("[FAS] Placed part's parent is null, ignoring.");
@@ -124,22 +144,31 @@ namespace FullAutoStrut
                 }
                 
 
-
+                // if grandparent is null, set to root
                 if (p.parent.parent == null)
                 {
-                    Log("[FAS] Placed part's grandparent is null, setting AutoStrut to Root Part."); // root part?
-                    p.autoStrutMode = Part.AutoStrutMode.Root;
-                    p.UpdateAutoStrut();
+                    SetAS(p, Part.AutoStrutMode.Root);
                     return;
                 } 
 
-                Log("[FAS] Defaulting AutoStrut to GrandParent");
-                p.autoStrutMode = Part.AutoStrutMode.Grandparent;
-                p.UpdateAutoStrut();
+                SetAS(p, Part.AutoStrutMode.Grandparent);
             }
             catch (Exception e)
             {
                 print("[FAS] " + e);
+            }            
+        }
+
+        private void SetAS(Part p, Part.AutoStrutMode asm)
+        {
+            Log(string.Format("[FAS] Setting AutoStrut to: {0}", asm));
+            p.autoStrutMode = asm;
+            p.UpdateAutoStrut();           
+
+            foreach (var pcp in p.symmetryCounterparts)
+            {
+                pcp.autoStrutMode = asm;
+                pcp.UpdateAutoStrut();
             }
         }
     }
