@@ -24,6 +24,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using KSP.UI.Screens;
 using UnityEngine;
 
@@ -115,8 +117,15 @@ namespace FullAutoStrut
             {
                 DebugLog(m: "Awake()");
 
+                var iconPath = Regex.Replace(input: Assembly.GetExecutingAssembly().CodeBase,
+                                             pattern: "^.+GameData/(.+)FullAutoStrut\\.dll$",
+                                             replacement: @"$1",
+                                             options: RegexOptions.IgnoreCase) + "fas";
+
+                DebugLog($"iconPath: {iconPath}");
+
                 if (_appIcon == null)
-                    _appIcon = GameDatabase.Instance.GetTexture(url: "XyphosAerospace/Plugins/FullAutoStrut/fas", asNormalMap: false);
+                    _appIcon = GameDatabase.Instance.GetTexture(url: iconPath, asNormalMap: false);
 
                 GameEvents.onGUIApplicationLauncherReady.Add(evt: OnGuiApplicationLauncherReady);
                 GameEvents.onGUIApplicationLauncherUnreadifying.Add(evt: OnGuiApplicationLauncherUnreadifying);
