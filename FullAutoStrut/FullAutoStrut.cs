@@ -1,7 +1,7 @@
 ﻿// 
 //  MIT License
 //  
-//  Copyright (c) 2017 William "Xyphos" Scott
+//  Copyright (c) 2018 William "Xyphos" Scott
 //  
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using KSP.UI.Screens;
-using UniLinq;
 using UnityEngine;
 
 namespace FullAutoStrut
@@ -51,13 +50,38 @@ namespace FullAutoStrut
         public bool ModEnabled = true;
 
         [Persistent]
-        public float PosX;
+        public float PosX = 0.5F;
 
         [Persistent]
-        public float PosY;
+        public float PosY = 0.5F;
 
         [Persistent]
         public bool RigidAttachment;
+
+        private Rect Geometry
+        {
+            get => new Rect(x: PosX / GameSettings.UI_SCALE,
+                            y: PosY / GameSettings.UI_SCALE,
+                            width: 200F,
+                            height: -1F);
+            set
+            {
+                PosX = Math.Max(val1: 0, val2: value.x * GameSettings.UI_SCALE);
+                PosY = Math.Max(val1: 0, val2: value.y * GameSettings.UI_SCALE);
+            }
+        }
+
+        private Rect CurrentGeometry
+        {
+            get
+            {
+                var rt = _dialog.GetComponent<RectTransform>().position;
+                return new Rect(
+                                x: rt.x / GameSettings.UI_SCALE / Screen.width  + 0.5f,
+                                y: rt.y / GameSettings.UI_SCALE / Screen.height + 0.5f,
+                                width: 200F, height: -1F);
+            }
+        }
 
         [Conditional(conditionString: "DEBUG")]
         private static void DebugLog(string m) { print(message: "[FAS] " + m); }
@@ -147,16 +171,16 @@ namespace FullAutoStrut
         {
             if (_dialog == null) return;
 
-            PosX = _dialog.RTrf.position.x;
-            PosY = _dialog.RTrf.position.y;
+            Geometry = new Rect(x: CurrentGeometry.x, y: CurrentGeometry.y, width: 200F, height: -1F);
+
             _dialog.Dismiss();
             _dialog = null;
         }
 
         private void OnAppLauncherTrue()
         {
-            const float Q = 0.5f;
-            const float H = 14F;
+            const float q = 0.5f;
+            const float h = 14F;
             OnAppLauncherFalse(); // make sure it's closed
 
             var components = new List<DialogGUIBase> {new DialogGUIFlexibleSpace()};
@@ -171,7 +195,7 @@ namespace FullAutoStrut
                                                                          GameSettings.SaveSettings();
                                                                          OnAppLauncherFalse();
                                                                          OnAppLauncherTrue();
-                                                                     }, w: -1f, h: H, dismissOnSelect: false));
+                                                                     }, w: -1f, h: h, dismissOnSelect: false));
 
                 goto SPAWN; // dirty kludge, I know...
             }
@@ -183,7 +207,7 @@ namespace FullAutoStrut
                                                                    ModEnabled = b;
                                                                    OnAppLauncherFalse();
                                                                    OnAppLauncherTrue();
-                                                               }, w: -1f, h: H));
+                                                               }, w: -1f, h: h));
             if (!ModEnabled)
             {
                 components.Add(item: new DialogGUILabel(message: "Full AutoStrut is currently disabled."));
@@ -193,7 +217,7 @@ namespace FullAutoStrut
             components.Add(item: new DialogGUIToggle(set: RigidAttachment,
                                                      lbel: "Use Rigid Attachment",
                                                      selected: b => RigidAttachment = b,
-                                                     w: -1f, h: H));
+                                                     w: -1f, h: h));
 
             components.Add(item: new DialogGUIFlexibleSpace());
 
@@ -205,7 +229,7 @@ namespace FullAutoStrut
                                                                                                   if (!b) return;
                                                                                                   AutoSelect    = false;
                                                                                                   AutoStrutMode = Part.AutoStrutMode.Off;
-                                                                                              }, w: -1f, h: H),
+                                                                                              }, w: -1f, h: h),
                                                           new DialogGUIToggleButton(set: AutoSelect    == false
                                                                                       && AutoStrutMode == Part.AutoStrutMode.Root,
                                                                                     lbel: "Root",
@@ -214,7 +238,7 @@ namespace FullAutoStrut
                                                                                                   if (!b) return;
                                                                                                   AutoSelect    = false;
                                                                                                   AutoStrutMode = Part.AutoStrutMode.Root;
-                                                                                              }, w: -1f, h: H),
+                                                                                              }, w: -1f, h: h),
                                                           new DialogGUIToggleButton(set: AutoSelect    == false
                                                                                       && AutoStrutMode == Part.AutoStrutMode.Heaviest,
                                                                                     lbel: "Heaviest",
@@ -223,7 +247,7 @@ namespace FullAutoStrut
                                                                                                   if (!b) return;
                                                                                                   AutoSelect    = false;
                                                                                                   AutoStrutMode = Part.AutoStrutMode.Heaviest;
-                                                                                              }, w: -1f, h: H),
+                                                                                              }, w: -1f, h: h),
                                                           new DialogGUIToggleButton(set: AutoSelect    == false
                                                                                       && AutoStrutMode == Part.AutoStrutMode.Grandparent,
                                                                                     lbel: "Grandparent",
@@ -232,54 +256,26 @@ namespace FullAutoStrut
                                                                                                   if (!b) return;
                                                                                                   AutoSelect    = false;
                                                                                                   AutoStrutMode = Part.AutoStrutMode.Grandparent;
-                                                                                              }, w: -1f, h: H),
+                                                                                              }, w: -1f, h: h),
                                                           new DialogGUIToggleButton(set: AutoSelect,
                                                                                     lbel: "Automatic",
                                                                                     selected: b => AutoSelect = b,
-                                                                                    w: -1f, h: H)
-                                                          /*,                                                          
-                                                           new DialogGUIToggleButton(set: AutoSelect    == false
-                                                                                       && AutoStrutMode == Part.AutoStrutMode.ForceRoot,
-                                                                                     lbel: "Force Root",
-                                                                                     selected: b =>
-                                                                                               {
-                                                                                                   if (!b) return;
-                                                                                                   AutoSelect    = false;
-                                                                                                   AutoStrutMode = Part.AutoStrutMode.ForceRoot;
-                                                                                               }, w: -1f, h: H),
-                                                           new DialogGUIToggleButton(set: AutoSelect    == false
-                                                                                       && AutoStrutMode == Part.AutoStrutMode.ForceHeaviest,
-                                                                                     lbel: "Force Heaviest",
-                                                                                     selected: b =>
-                                                                                               {
-                                                                                                   if (!b) return;
-                                                                                                   AutoSelect    = false;
-                                                                                                   AutoStrutMode = Part.AutoStrutMode.ForceHeaviest;
-                                                                                               }, w: -1f, h: H),
-                                                           new DialogGUIToggleButton(set: AutoSelect    == false
-                                                                                       && AutoStrutMode == Part.AutoStrutMode.ForceGrandparent,
-                                                                                     lbel: "Force Grandparent",
-                                                                                     selected: b =>
-                                                                                               {
-                                                                                                   if (!b) return;
-                                                                                                   AutoSelect    = false;
-                                                                                                   AutoStrutMode = Part.AutoStrutMode.ForceGrandparent;
-                                                                                               }, w: -1f, h: H)
-                                                             //*/
-                                                         ));
+                                                                                    w: -1f, h: h)));
             components.Add(item: new DialogGUIToggle(set: ApplyChildren,
                                                      lbel: "Re-Apply to child parts",
                                                      selected: b => ApplyChildren = b,
-                                                     w: -1f, h: H));
+                                                     w: -1f, h: h));
 
 
             SPAWN: // dirty kludge, I know...
-            _dialog = PopupDialog.SpawnPopupDialog(anchorMin: new Vector2(x: Q, y: Q),
-                                                   anchorMax: new Vector2(x: Q, y: Q),
-                                                   dialog: new MultiOptionDialog("", "", "Full AutoStrut", HighLogic.UISkin,
-                                                                                 new Rect(x: Q, y: Q, width: 200f, height: -1f),
-                                                                                 //new DialogGUIFlexibleSpace(),
-                                                                                 new DialogGUIVerticalLayout(list: components.ToArray())
+            _dialog = PopupDialog.SpawnPopupDialog(anchorMin: new Vector2(x: q, y: q),
+                                                   anchorMax: new Vector2(x: q, y: q),
+                                                   dialog: new MultiOptionDialog(name: "",
+                                                                                 msg: "",
+                                                                                 windowTitle: "Full AutoStrut",
+                                                                                 skin: HighLogic.UISkin,
+                                                                                 rct: Geometry,
+                                                                                 options: new DialogGUIVerticalLayout(list: components.ToArray())
                                                                                 ),
                                                    persistAcrossScenes: false,
                                                    skin: HighLogic.UISkin,
@@ -318,9 +314,18 @@ namespace FullAutoStrut
                 // when removed, reset the strut mode to OFF so it can be properly set again when reattached.
                 if (ct == ConstructionEventType.PartDetached)
                 {
+                    DebugLog(m: "OnPartAttached (removed)");
                     // revert part to default
-                    var loadedPart = PartLoader.Instance.loadedParts.First(predicate: part => part.name.Equals(value: p.name));
-                    SetAutoStrut(p: p, asm: loadedPart.partPrefab.autoStrutMode);
+                    // ReSharper disable once SwitchStatementMissingSomeCases
+                    switch (p.autoStrutMode)
+                    {
+                        case Part.AutoStrutMode.Grandparent:
+                        case Part.AutoStrutMode.Heaviest:
+                        case Part.AutoStrutMode.Root:
+                            SetAutoStrut(p: p, asm: Part.AutoStrutMode.Off);
+                            break;
+                    }
+
                     return;
                 }
 
@@ -375,21 +380,6 @@ namespace FullAutoStrut
                     p2 = p2.parent; // next itteration
                 }
 
-                // old functionality preserved, but now optional
-                if (AutoSelect)
-                {
-                    // if grandparent is null, set to root
-                    if (p.parent.parent == null)
-                    {
-                        SetAutoStrut(p: p, asm: Part.AutoStrutMode.Root);
-                        return;
-                    }
-
-                    SetAutoStrut(p: p, asm: Part.AutoStrutMode.Grandparent);
-                    return;
-                }
-
-                // otherwise, use the GUI selection
                 SetAutoStrut(p: p, asm: AutoStrutMode);
             }
             catch (Exception e)
@@ -400,12 +390,19 @@ namespace FullAutoStrut
 
         private void SetAutoStrut(Part p, Part.AutoStrutMode asm)
         {
+            if (p == null) return;
+
+            // automatic override
+            if (AutoSelect)
+                asm = p.parent.parent == null
+                          ? Part.AutoStrutMode.Root
+                          : Part.AutoStrutMode.Grandparent;
+
             DebugLog(m: $"Setting AutoStrut to: {asm}");
             p.autoStrutMode   = asm;
             p.rigidAttachment = !RigidAttachment;
             p.ToggleRigidAttachment();
             p.UpdateAutoStrut();
-
 
             foreach (var pcp in p.symmetryCounterparts)
             {
@@ -415,6 +412,7 @@ namespace FullAutoStrut
                 pcp.UpdateAutoStrut();
             }
 
+            // ReSharper disable once InvertIf
             if (ApplyChildren)
                 foreach (var child in p.children)
                     SetAutoStrut(p: child, asm: asm);
