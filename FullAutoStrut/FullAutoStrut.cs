@@ -60,19 +60,31 @@ namespace FullAutoStrut
         [Persistent]
         public bool RigidAttachment;
 
+        /// <summary>
+        ///   Gets or sets the geometry.
+        /// </summary>
+        /// <value>
+        ///   The geometry.
+        /// </value>
         private Rect Geometry
         {
             get => new Rect(x: PosX / GameSettings.UI_SCALE,
                             y: PosY / GameSettings.UI_SCALE,
-                            width: 200F,
+                            width: 300F,
                             height: -1F);
             set
             {
-                PosX = Math.Max(val1: 0, val2: value.x * GameSettings.UI_SCALE);
-                PosY = Math.Max(val1: 0, val2: value.y * GameSettings.UI_SCALE);
+                PosX = value.x * GameSettings.UI_SCALE;
+                PosY = value.y * GameSettings.UI_SCALE;
             }
         }
 
+        /// <summary>
+        ///   Gets the current geometry.
+        /// </summary>
+        /// <value>
+        ///   The current geometry.
+        /// </value>
         private Rect CurrentGeometry
         {
             get
@@ -119,10 +131,10 @@ namespace FullAutoStrut
 
                 var iconPath = Regex.Replace(input: Assembly.GetExecutingAssembly().CodeBase,
                                              pattern: "^.+GameData/(.+)FullAutoStrut\\.dll$",
-                                             replacement: @"$1",
-                                             options: RegexOptions.IgnoreCase) + "fas";
+                                             replacement: @"$1fas",
+                                             options: RegexOptions.IgnoreCase);
 
-                DebugLog($"iconPath: {iconPath}");
+                DebugLog(m: $"iconPath: {iconPath}");
 
                 if (_appIcon == null)
                     _appIcon = GameDatabase.Instance.GetTexture(url: iconPath, asNormalMap: false);
@@ -176,6 +188,9 @@ namespace FullAutoStrut
             }
         }
 
+        /// <summary>
+        ///   Called when [application launcher false].
+        /// </summary>
         private void OnAppLauncherFalse()
         {
             if (_dialog == null) return;
@@ -184,12 +199,16 @@ namespace FullAutoStrut
 
             _dialog.Dismiss();
             _dialog = null;
+            _button.SetFalse(makeCall: false); // this is needed in case the "close" button was clicked instead of the app button.
         }
 
+        /// <summary>
+        ///   Called when [application launcher true].
+        /// </summary>
         private void OnAppLauncherTrue()
         {
             const float q = 0.5f;
-            const float h = 14F;
+            const float h = 18F;
             OnAppLauncherFalse(); // make sure it's closed
 
             var components = new List<DialogGUIBase> {new DialogGUIFlexibleSpace()};
@@ -197,15 +216,16 @@ namespace FullAutoStrut
             if (!GameSettings.ADVANCED_TWEAKABLES)
             {
                 components.Add(item: new DialogGUILabel(message: "'Advanced Tweakables' needs to be enabled.\nClick the button below to enable it."));
-                components.Add(item: new DialogGUIButton(optionText: "Enable 'Advanced Tweakables'",
-                                                         onSelected: () =>
-                                                                     {
-                                                                         GameSettings.ADVANCED_TWEAKABLES = true;
-                                                                         GameSettings.SaveSettings();
-                                                                         OnAppLauncherFalse();
-                                                                         OnAppLauncherTrue();
-                                                                     }, w: -1f, h: h, dismissOnSelect: false));
-
+                components.Add(item: new DialogGUIHorizontalLayout(new DialogGUISpace(v: -1f),
+                                                                   new DialogGUIButton(optionText: "Enable 'Advanced Tweakables'",
+                                                                                       onSelected: () =>
+                                                                                                   {
+                                                                                                       GameSettings.ADVANCED_TWEAKABLES = true;
+                                                                                                       GameSettings.SaveSettings();
+                                                                                                       OnAppLauncherFalse();
+                                                                                                       OnAppLauncherTrue();
+                                                                                                   }, w: 250f, h: -1f, dismissOnSelect: false),
+                                                                   new DialogGUISpace(v: -1f)));
                 goto SPAWN; // dirty kludge, I know...
             }
 
@@ -275,12 +295,24 @@ namespace FullAutoStrut
                                                      selected: b => ApplyChildren = b,
                                                      w: -1f, h: h));
 
+            //components.Add(item: new DialogGUIFlexibleSpace());
+            components.Add(item: new DialogGUIButton(optionText: "Apply to all",
+                                                     onSelected: () => SetAutoStrut(p: EditorLogic.RootPart, asm: AutoStrutMode, applyChildren: true),
+                                                     EnabledCondition: null, w: -1f, h: -1f, dismissOnSelect: false
+                                                    ));
 
             SPAWN: // dirty kludge, I know...
+            components.Add(item: new DialogGUISpace(v: h));
+            components.Add(item: new DialogGUIHorizontalLayout(new DialogGUISpace(v: -1f),
+                                                               new DialogGUIButton(optionText: "Close",
+                                                                                   onSelected: OnAppLauncherFalse,
+                                                                                   EnabledCondition: null, w: -1f, h: -1f, dismissOnSelect: false),
+                                                               new DialogGUISpace(v: -1f)));
+
             _dialog = PopupDialog.SpawnPopupDialog(anchorMin: new Vector2(x: q, y: q),
                                                    anchorMax: new Vector2(x: q, y: q),
-                                                   dialog: new MultiOptionDialog(name: "",
-                                                                                 msg: "",
+                                                   dialog: new MultiOptionDialog(name: string.Empty,
+                                                                                 msg: string.Empty,
                                                                                  windowTitle: "Full AutoStrut",
                                                                                  skin: HighLogic.UISkin,
                                                                                  rct: Geometry,
@@ -292,6 +324,10 @@ namespace FullAutoStrut
                                                   );
         }
 
+        /// <summary>
+        ///   Called when [GUI application launcher unreadifying].
+        /// </summary>
+        /// <param name="data">The data.</param>
         private void OnGuiApplicationLauncherUnreadifying(GameScenes data)
         {
             try
@@ -331,7 +367,7 @@ namespace FullAutoStrut
                         case Part.AutoStrutMode.Grandparent:
                         case Part.AutoStrutMode.Heaviest:
                         case Part.AutoStrutMode.Root:
-                            SetAutoStrut(p: p, asm: Part.AutoStrutMode.Off);
+                            SetAutoStrut(p: p, asm: Part.AutoStrutMode.Off, applyChildren: true);
                             break;
                     }
 
@@ -389,7 +425,7 @@ namespace FullAutoStrut
                     p2 = p2.parent; // next itteration
                 }
 
-                SetAutoStrut(p: p, asm: AutoStrutMode);
+                SetAutoStrut(p: p, asm: AutoStrutMode, applyChildren: ApplyChildren);
             }
             catch (Exception e)
             {
@@ -397,34 +433,44 @@ namespace FullAutoStrut
             }
         }
 
-        private void SetAutoStrut(Part p, Part.AutoStrutMode asm)
+        /// <summary>
+        ///   Sets the automatic strut.
+        /// </summary>
+        /// <param name="p">The p.</param>
+        /// <param name="asm">The asm.</param>
+        /// <param name="applyChildren">if set to <c>true</c> [apply children].</param>
+        private void SetAutoStrut(Part p, Part.AutoStrutMode asm, bool applyChildren)
         {
             if (p == null) return;
 
             // automatic override
             if (AutoSelect)
-                asm = p.parent.parent == null
-                          ? Part.AutoStrutMode.Root
-                          : Part.AutoStrutMode.Grandparent;
+                asm = p.parent == null
+                          ? Part.AutoStrutMode.Off
+                          : p.parent.parent == null
+                              ? Part.AutoStrutMode.Root
+                              : Part.AutoStrutMode.Grandparent;
 
             DebugLog(m: $"Setting AutoStrut to: {asm}");
             p.autoStrutMode   = asm;
-            p.rigidAttachment = !RigidAttachment;
-            p.ToggleRigidAttachment();
+            p.rigidAttachment = RigidAttachment;
+            p.ApplyRigidAttachment();
             p.UpdateAutoStrut();
 
             foreach (var pcp in p.symmetryCounterparts)
             {
+                if (pcp == null) continue;
                 pcp.autoStrutMode   = asm;
-                pcp.rigidAttachment = !RigidAttachment;
-                pcp.ToggleRigidAttachment();
+                pcp.rigidAttachment = RigidAttachment;
+                pcp.ApplyRigidAttachment();
                 pcp.UpdateAutoStrut();
             }
 
             // ReSharper disable once InvertIf
-            if (ApplyChildren)
+            if (applyChildren)
                 foreach (var child in p.children)
-                    SetAutoStrut(p: child, asm: asm);
+                    if (child != null)
+                        SetAutoStrut(p: child, asm: asm, applyChildren: true);
         }
     }
 }
