@@ -29,58 +29,74 @@ using System.Text.RegularExpressions;
 using KSP.UI.Screens;
 using UnityEngine;
 
-namespace FullAutoStrut
+namespace XyphosAerospace
 {
   [KSPAddon(startup: KSPAddon.Startup.EditorAny, once: false)]
   public class FullAutoStrut : MonoBehaviour
   {
+    internal static readonly string AssemblyVersion = GetAssemblyVersion();
+
+    internal static string ModPath = Regex.Replace(
+        input: Assembly.GetExecutingAssembly().CodeBase,
+        pattern: "^.+GameData/(.+)FullAutoStrut\\.dll$",
+        replacement: @"$1",
+        options: RegexOptions.IgnoreCase
+      );
+
+
     private Texture                   _appIcon;
-    private bool                      _applyChildren;
-    private bool                      _autoSelect = true;
-    private Part.AutoStrutMode        _autoStrutMode;
+    private DialogGUIToggleButton     _applyChildren;
     private ApplicationLauncherButton _button;
     private PopupDialog               _dialog;
-    private bool                      _modEnabled = true;
-    private bool                      _rigidAttachment;
+
+    /// <summary>
+    ///   Gets the assembly version.
+    /// </summary>
+    /// <returns></returns>
+    private static string GetAssemblyVersion()
+    {
+      var assembly        = Assembly.GetExecutingAssembly();
+      var fileVersionInfo = FileVersionInfo.GetVersionInfo(fileName: assembly.Location);
+      return fileVersionInfo.FileVersion;
+    }
 
 
-    [Conditional(conditionString: "DEBUG")] private static void DebugLog(string m) => print(message: "[FAS] " + m);
-
-    [Conditional(conditionString: "DEBUG")] private static void DebugLog(Exception e) => print(message: "[FAS] " + e);
-
+    /// <summary>
+    ///   Logs debugging information. (DEBUG builds only)
+    /// </summary>
+    /// <param name="m">The m.</param>
+    [Conditional(conditionString: "DEBUG")]
+    internal static void DebugLog(object m) => print(message: "[Full AutoStrut] " + m);
 
     /// <summary>
     ///   Called when this module is deactivated.
     /// </summary>
+    // ReSharper disable once UnusedMember.Global
     public void OnDisable()
     {
       try
       {
-        //print("OnDisable()");
+        DebugLog(m: "OnDisable()");
         GameEvents.onEditorPartEvent.Remove(evt: OnPartEvent);
+        Settings.Save();
       }
       catch (Exception e)
       {
-        DebugLog(e: e);
+        DebugLog(m: e);
       }
     }
 
     /// <summary>
     ///   Called when this module is activated.
     /// </summary>
+    // ReSharper disable once UnusedMember.Global
     public void Awake()
     {
       try
       {
         DebugLog(m: "Awake()");
 
-        var iconPath = Regex.Replace(
-            input: Assembly.GetExecutingAssembly().CodeBase,
-            pattern: "^.+GameData/(.+)FullAutoStrut\\.dll$",
-            replacement: @"$1fas",
-            options: RegexOptions.IgnoreCase
-          );
-
+        var iconPath = ModPath + "fas";
         DebugLog(m: $"iconPath: {iconPath}");
 
         if (_appIcon == null) _appIcon = GameDatabase.Instance.GetTexture(url: iconPath, asNormalMap: false);
@@ -91,14 +107,15 @@ namespace FullAutoStrut
       }
       catch (Exception e)
       {
-        DebugLog(e: e);
+        DebugLog(m: e);
       }
     }
 
 
     /// <summary>
-    ///   Called when this mondule is destroyed.
+    ///   Called when this module is destroyed.
     /// </summary>
+    // ReSharper disable once UnusedMember.Global
     public void OnDestroy()
     {
       try
@@ -109,7 +126,7 @@ namespace FullAutoStrut
       }
       catch (Exception e)
       {
-        DebugLog(e: e);
+        DebugLog(m: e);
       }
     }
 
@@ -134,7 +151,7 @@ namespace FullAutoStrut
       }
       catch (Exception e)
       {
-        DebugLog(e: e);
+        DebugLog(m: e);
       }
     }
 
@@ -143,7 +160,12 @@ namespace FullAutoStrut
     /// </summary>
     private void OnAppLauncherFalse()
     {
+      DebugLog(m: "OnAppLauncherFalse()");
       if (_dialog == null) return;
+      var rt = _dialog.GetComponent<RectTransform>().position;
+      Settings.Instance.PosX = rt.x / GameSettings.UI_SCALE / Screen.width  + 0.5f;
+      Settings.Instance.PosY = rt.y / GameSettings.UI_SCALE / Screen.height + 0.5f;
+
       _dialog.Dismiss();
       _dialog = null;
       _button.SetFalse(makeCall: false); // this is needed in case the "close" button was clicked instead of the app button.
@@ -155,17 +177,26 @@ namespace FullAutoStrut
     private void OnAppLauncherTrue()
     {
       const float q = 0.5f;
-      const float h = 18F;
+      const float w = 500f;
+      const float h = 28f;
+      const float v = 14f;
+
+      DebugLog(m: "OnAppLauncherTrue()");
+
       OnAppLauncherFalse(); // make sure it's closed
 
-      var components = new List<DialogGUIBase> {new DialogGUIFlexibleSpace()};
+      var components = new List<DialogGUIBase> {new DialogGUISpace(v: v)};
+      var btm        = new DialogGUIHorizontalLayout(new DialogGUIFlexibleSpace());
+
 
       if (!GameSettings.ADVANCED_TWEAKABLES)
       {
-        components.Add(item: new DialogGUILabel(message: "'Advanced Tweakables' needs to be enabled.\nClick the button below to enable it."));
+        components.Add(
+            item: new DialogGUIHorizontalLayout(new DialogGUILabel(message: "'Advanced Tweakables' needs to be enabled.\nClick the button below to enable it."))
+          );
+
         components.Add(
             item: new DialogGUIHorizontalLayout(
-                new DialogGUISpace(v: -1f),
                 new DialogGUIButton(
                     optionText: "Enable 'Advanced Tweakables'",
                     onSelected: () =>
@@ -175,8 +206,8 @@ namespace FullAutoStrut
                       OnAppLauncherFalse();
                       OnAppLauncherTrue();
                     },
-                    w: 250f,
-                    h: -1f,
+                    w: -1f,
+                    h: h,
                     dismissOnSelect: false
                   ),
                 new DialogGUISpace(v: -1f)
@@ -185,13 +216,14 @@ namespace FullAutoStrut
         goto SPAWN; // dirty kludge, I know...
       }
 
-      components.Add(
-          item: new DialogGUIToggle(
-              set: _modEnabled,
-              lbel: "Enable FAS",
+      var top = new DialogGUIHorizontalLayout(
+          new DialogGUISpace(v: v),
+          new DialogGUIToggleButton(
+              set: Settings.Instance.ModEnabled,
+              lbel: "Enable Full AutoStrut",
               selected: b =>
               {
-                _modEnabled = b;
+                Settings.Instance.ModEnabled = b;
                 OnAppLauncherFalse();
                 OnAppLauncherTrue();
               },
@@ -199,92 +231,200 @@ namespace FullAutoStrut
               h: h
             )
         );
-      if (!_modEnabled)
+
+      components.Add(item: top);
+
+      if (!Settings.Instance.ModEnabled)
       {
-        components.Add(item: new DialogGUILabel(message: "Full AutoStrut is currently disabled."));
+        components.Add(
+            item: new DialogGUIHorizontalLayout(
+                new DialogGUIFlexibleSpace(),
+                new DialogGUILabel(message: "Full AutoStrut is currently disabled."),
+                new DialogGUIFlexibleSpace()
+              )
+          );
+        components.Add(item: new DialogGUISpace(v: v));
+        top.AddChild(child: new DialogGUISpace(v: v));
         goto SPAWN; // dirty kludge, I know...
       }
 
-      components.Add(item: new DialogGUIToggle(set: _rigidAttachment, lbel: "Use Rigid Attachment", selected: b => _rigidAttachment = b, w: -1f, h: h));
-
-      components.Add(item: new DialogGUIFlexibleSpace());
-
-      components.Add(
-          item: new DialogGUIToggleGroup(
-              new DialogGUIToggleButton(
-                  set: _autoSelect == false && _autoStrutMode == Part.AutoStrutMode.Off,
-                  lbel: "Off",
-                  selected: b =>
-                  {
-                    if (!b) return;
-                    _autoSelect    = false;
-                    _autoStrutMode = Part.AutoStrutMode.Off;
-                  },
-                  w: -1f,
-                  h: h
-                ),
-              new DialogGUIToggleButton(
-                  set: _autoSelect == false && _autoStrutMode == Part.AutoStrutMode.Root,
-                  lbel: "Root",
-                  selected: b =>
-                  {
-                    if (!b) return;
-                    _autoSelect    = false;
-                    _autoStrutMode = Part.AutoStrutMode.Root;
-                  },
-                  w: -1f,
-                  h: h
-                ),
-              new DialogGUIToggleButton(
-                  set: _autoSelect == false && _autoStrutMode == Part.AutoStrutMode.Heaviest,
-                  lbel: "Heaviest",
-                  selected: b =>
-                  {
-                    if (!b) return;
-                    _autoSelect    = false;
-                    _autoStrutMode = Part.AutoStrutMode.Heaviest;
-                  },
-                  w: -1f,
-                  h: h
-                ),
-              new DialogGUIToggleButton(
-                  set: _autoSelect == false && _autoStrutMode == Part.AutoStrutMode.Grandparent,
-                  lbel: "Grandparent",
-                  selected: b =>
-                  {
-                    if (!b) return;
-                    _autoSelect    = false;
-                    _autoStrutMode = Part.AutoStrutMode.Grandparent;
-                  },
-                  w: -1f,
-                  h: h
-                ),
-              new DialogGUIToggleButton(set: _autoSelect, lbel: "Automatic", selected: b => _autoSelect = b, w: -1f, h: h)
+      top.AddChild(
+          child: new DialogGUIToggleButton(
+              set: Settings.Instance.RigidAttachment,
+              lbel: "Use Rigid Attachment",
+              selected: b => Settings.Instance.RigidAttachment = b,
+              w: -1f,
+              h: h
             )
         );
-      components.Add(item: new DialogGUIToggle(set: _applyChildren, lbel: "Re-Apply to child parts", selected: b => _applyChildren = b, w: -1f, h: h));
 
-      //components.Add(item: new DialogGUIFlexibleSpace());
+      _applyChildren = new DialogGUIToggleButton(
+          set: Settings.Instance.ApplyChildren,
+          lbel: "Re-Apply to child parts",
+          selected: b => Settings.Instance.ApplyChildren = b,
+          w: -1f,
+          h: h
+        );
+
+      top.AddChild(child: _applyChildren);
+      top.AddChild(child: new DialogGUISpace(v: v));
+
+      components.Add(item: new DialogGUISpace(v: v));
       components.Add(
-          item: new DialogGUIButton(
+          item: new DialogGUIHorizontalLayout(new DialogGUIFlexibleSpace(), new DialogGUIBox(message: "AutoStrut", w: w, h: h), new DialogGUIFlexibleSpace())
+        );
+
+      components.Add(
+          item: new DialogGUIHorizontalLayout(
+              new DialogGUISpace(v: v),
+              new DialogGUIToggleGroup(
+                  new DialogGUIToggleButton(
+                      set: Settings.Instance.AutoSelect == false && Settings.Instance.AutoStrutMode == Part.AutoStrutMode.Off,
+                      lbel: "Off",
+                      selected: b =>
+                      {
+                        if (!b) return;
+                        Settings.Instance.AutoSelect    = false;
+                        Settings.Instance.AutoStrutMode = Part.AutoStrutMode.Off;
+                      },
+                      w: -1f,
+                      h: h
+                    ),
+                  new DialogGUIToggleButton(
+                      set: Settings.Instance.AutoSelect == false && Settings.Instance.AutoStrutMode == Part.AutoStrutMode.Root,
+                      lbel: "Root",
+                      selected: b =>
+                      {
+                        if (!b) return;
+                        Settings.Instance.AutoSelect    = false;
+                        Settings.Instance.AutoStrutMode = Part.AutoStrutMode.Root;
+                      },
+                      w: -1f,
+                      h: h
+                    ),
+                  new DialogGUIToggleButton(
+                      set: Settings.Instance.AutoSelect == false && Settings.Instance.AutoStrutMode == Part.AutoStrutMode.Heaviest,
+                      lbel: "Heaviest",
+                      selected: b =>
+                      {
+                        if (!b) return;
+                        Settings.Instance.AutoSelect    = false;
+                        Settings.Instance.AutoStrutMode = Part.AutoStrutMode.Heaviest;
+                      },
+                      w: -1f,
+                      h: h
+                    ),
+                  new DialogGUIToggleButton(
+                      set: Settings.Instance.AutoSelect == false && Settings.Instance.AutoStrutMode == Part.AutoStrutMode.Grandparent,
+                      lbel: "Grandparent",
+                      selected: b =>
+                      {
+                        if (!b) return;
+                        Settings.Instance.AutoSelect    = false;
+                        Settings.Instance.AutoStrutMode = Part.AutoStrutMode.Grandparent;
+                      },
+                      w: -1f,
+                      h: h
+                    ),
+                  new DialogGUIToggleButton(set: Settings.Instance.AutoSelect, lbel: "Automatic", selected: b => Settings.Instance.AutoSelect = b, w: -1f, h: h)
+                ),
+              new DialogGUISpace(v: v)
+            )
+        );
+
+      components.Add(item: new DialogGUISpace(v: v));
+
+      components.Add(item: new DialogGUIHorizontalLayout(new DialogGUIBox(message: "Same Vessel Interaction", w: w, h: h)));
+      components.Add(
+          item: new DialogGUIHorizontalLayout(
+              new DialogGUISpace(v: v),
+              new DialogGUIToggleGroup(
+                  new DialogGUIToggleButton(
+                      set: Settings.Instance.AutomaticSameVesselInteraction == false && Settings.Instance.SameVesselInteraction == false,
+                      lbel: "Off",
+                      selected: b =>
+                      {
+                        if (!b) return;
+                        Settings.Instance.AutomaticSameVesselInteraction = false;
+                        Settings.Instance.SameVesselInteraction          = false;
+                      },
+                      w: -1F,
+                      h: h
+                    ),
+                  new DialogGUIToggleButton(
+                      set: Settings.Instance.AutomaticSameVesselInteraction == false && Settings.Instance.SameVesselInteraction,
+                      lbel: "On",
+                      selected: b =>
+                      {
+                        if (!b) return;
+                        Settings.Instance.AutomaticSameVesselInteraction = false;
+                        Settings.Instance.SameVesselInteraction          = true;
+                      },
+                      w: -1F,
+                      h: h
+                    ),
+                  new DialogGUIToggleButton(
+                      set: Settings.Instance.AutomaticSameVesselInteraction,
+                      lbel: "Automatic",
+                      selected: b =>
+                      {
+                        Settings.Instance.AutomaticSameVesselInteraction = b;
+                        Settings.Instance.SameVesselInteraction          = false;
+                      },
+                      w: -1F,
+                      h: h
+                    )
+                ),
+              new DialogGUISpace(v: v)
+            )
+        );
+
+
+      components.Add(item: new DialogGUISpace(v: v));
+
+
+      btm.AddChild(
+          child: new DialogGUIButton(
               optionText: "Apply to all",
-              onSelected: () => SetAutoStrut(p: EditorLogic.RootPart, asm: _autoStrutMode, applyChildren: true),
+              onSelected: () => SetPartOptions(
+                  p: EditorLogic.RootPart,
+                  autoStrutMode: Settings.Instance.AutoStrutMode,
+                  isRoboticHierarchy: EditorLogic.RootPart.IsRoboticCompatible(),
+                  applyChildren: true
+                ),
               EnabledCondition: null,
               w: -1f,
-              h: -1f,
+              h: h,
               dismissOnSelect: false
             )
         );
 
-      SPAWN: // dirty kludge, I know...
-      components.Add(item: new DialogGUISpace(v: h));
-      components.Add(
-          item: new DialogGUIHorizontalLayout(
-              new DialogGUISpace(v: -1f),
-              new DialogGUIButton(optionText: "Close", onSelected: OnAppLauncherFalse, EnabledCondition: null, w: -1f, h: -1f, dismissOnSelect: false),
-              new DialogGUISpace(v: -1f)
+      btm.AddChild(child: new DialogGUISpace(v: v));
+      btm.AddChild(
+          child: new DialogGUIButton(
+              optionText: "Reset Settings",
+              onSelected: () =>
+              {
+                Settings.Instance.Reset();
+                OnAppLauncherFalse();
+                OnAppLauncherTrue();
+              },
+              EnabledCondition: null,
+              w: -1f,
+              h: h,
+              dismissOnSelect: false
             )
         );
+      btm.AddChild(child: new DialogGUISpace(v: v));
+
+      SPAWN: // dirty kludge, I know...
+      btm.AddChild(
+          child: new DialogGUIButton(optionText: "Close", onSelected: OnAppLauncherFalse, EnabledCondition: null, w: -1f, h: h, dismissOnSelect: false)
+        );
+      btm.AddChild(child: new DialogGUIFlexibleSpace());
+
+      components.Add(item: btm);
+      components.Add(item: new DialogGUISpace(v: v));
 
       _dialog = PopupDialog.SpawnPopupDialog(
           anchorMin: new Vector2(x: q, y: q),
@@ -292,9 +432,9 @@ namespace FullAutoStrut
           dialog: new MultiOptionDialog(
               name: "FULL~AUTO~STRUT",
               msg: string.Empty,
-              windowTitle: "Full AutoStrut",
+              windowTitle: "Full AutoStrut v" + AssemblyVersion,
               skin: HighLogic.UISkin,
-              rct: new Rect(x: 0.5f, y: 0.5f, width: 200f, height: -1f),
+              rct: new Rect(x: Settings.Instance.PosX * GameSettings.UI_SCALE, y: Settings.Instance.PosY * GameSettings.UI_SCALE, width: w, height: -1f),
               options: new DialogGUIVerticalLayout(list: components.ToArray())
             ),
           persistAcrossScenes: false,
@@ -321,7 +461,7 @@ namespace FullAutoStrut
       }
       catch (Exception e)
       {
-        DebugLog(e: e);
+        DebugLog(m: e);
       }
     }
 
@@ -338,28 +478,27 @@ namespace FullAutoStrut
         // when removed, reset the strut mode to OFF so it can be properly set again when reattached.
         if (ct == ConstructionEventType.PartDetached)
         {
-          DebugLog(m: "OnPartAttached (removed)");
-          // revert part to default
-          // ReSharper disable once SwitchStatementMissingSomeCases
-          switch (p.autoStrutMode)
-          {
-            case Part.AutoStrutMode.Grandparent:
-            case Part.AutoStrutMode.Heaviest:
-            case Part.AutoStrutMode.Root:
-              SetAutoStrut(p: p, asm: Part.AutoStrutMode.Off, applyChildren: true);
-              break;
-          }
-
+          DebugLog(m: "OnPartDetached");
+          ResetPartOptions(p: p, applyChildren: true, applySymmetry: true);
           return;
         }
 
         // if the event isn't detach or attach, stop here.
         if (ct != ConstructionEventType.PartAttached) return;
-
         DebugLog(m: "OnPartAttached");
 
         // check for mod enabled
-        if (!_modEnabled) return;
+        if (!Settings.Instance.ModEnabled) return;
+
+        /* TODO:
+        // automatically toggle off "Re-Apply to Children" after re-placing parent part
+        if (Settings.Instance.ApplyChildren)
+        {
+          DebugLog("HERE");
+          Settings.Instance.ApplyChildren = false;
+          _applyChildren.toggle.group.SetAllTogglesOff();
+        }
+        */
 
         // check for null
         if (p == null)
@@ -368,86 +507,111 @@ namespace FullAutoStrut
           return;
         }
 
-        // check if allowed
+        // check if AutoStruts are allowed
         if (!p.AllowAutoStruts())
         {
           DebugLog(m: "AutoStruts is disallowed");
           return;
         }
 
-        // some parts have their autostrut already set by default, do not override this.
-        if (p.autoStrutMode != Part.AutoStrutMode.Off)
+        // check for robotics
+        var isRobotic = false;
+        for (var p2 = p; p2 != null && (isRobotic = p2.IsRoboticCompatible()) == false; p2 = p2.parent) { }
+
+        // some parts have their AutoStrut already set by default, do not override this if not placed on robotics.
+        if (!isRobotic
+         && p.autoStrutMode != Part.AutoStrutMode.Off)
         {
           DebugLog(m: "AutoStrut is already set");
           return;
         }
 
-        // ignore parts with null parents
-        if (p.parent == null)
-        {
-          DebugLog(m: "Placed part's parent is null, ignoring.");
-          return;
-        }
-
-        // Added Infernal Robotics Comaptibility - Crawl the parts hierarchy to check for robotic parents
-        var p2 = p;
-        while (p2 != null)
-        {
-          if (p2.Modules.ContainsRegex(pattern: "^ModuleRobotic(?:Rotation)?Servo|^MuMechToggle"))
-          {
-            DebugLog(m: "Placed part is a robotic attachment, ignoring.");
-            return;
-          }
-
-          p2 = p2.parent; // next itteration
-        }
-
-        SetAutoStrut(p: p, asm: _autoStrutMode, applyChildren: _applyChildren);
+        SetPartOptions(p: p, autoStrutMode: Settings.Instance.AutoStrutMode, isRoboticHierarchy: isRobotic, applyChildren: true);
       }
       catch (Exception e)
       {
-        DebugLog(e: e);
+        DebugLog(m: e);
       }
     }
 
     /// <summary>
-    ///   Sets the automatic strut.
+    ///   Sets the part options.
     /// </summary>
     /// <param name="p">The p.</param>
-    /// <param name="asm">The asm.</param>
-    /// <param name="applyChildren">if set to <c>true</c> [apply children].</param>
-    private void SetAutoStrut(Part p, Part.AutoStrutMode asm, bool applyChildren)
+    /// <param name="autoStrutMode">The automatic strut mode.</param>
+    /// <param name="isRoboticHierarchy">if set to <c>true</c> [is robotic hierarchy].</param>
+    /// <param name="applyChildren">if set to <c>true</c> [apply to all children].</param>
+    private void SetPartOptions(Part p, Part.AutoStrutMode autoStrutMode, bool isRoboticHierarchy, bool applyChildren)
     {
       if (p == null) return;
 
-      // automatic override
-      if (_autoSelect)
-        asm = p.parent == null
-                ? Part.AutoStrutMode.Off
-                : p.parent.parent == null
-                  ? Part.AutoStrutMode.Root
-                  : Part.AutoStrutMode.Grandparent;
+      if (isRoboticHierarchy)
+        autoStrutMode = Part.AutoStrutMode.Off;
+      else if (Settings.Instance.AutoSelect)
+        autoStrutMode = p.parent == null
+                          ? Part.AutoStrutMode.Off
+                          : p.parent.parent == null
+                            ? Part.AutoStrutMode.Root
+                            : Part.AutoStrutMode.Grandparent;
 
-      DebugLog(m: $"Setting AutoStrut to: {asm}");
-      p.autoStrutMode   = asm;
-      p.rigidAttachment = _rigidAttachment;
-      p.ApplyRigidAttachment();
-      p.UpdateAutoStrut();
+      var sameVesselInteraction = Settings.Instance.SameVesselInteraction | (isRoboticHierarchy && Settings.Instance.AutomaticSameVesselInteraction);
 
-      foreach (var pcp in p.symmetryCounterparts)
-      {
-        if (pcp == null) continue;
-        pcp.autoStrutMode   = asm;
-        pcp.rigidAttachment = _rigidAttachment;
-        pcp.ApplyRigidAttachment();
-        pcp.UpdateAutoStrut();
-      }
+      ApplyPartOptions(p: p, autoStrutMode: autoStrutMode, sameVesselInteraction: sameVesselInteraction, applySymmetry: true);
 
       // ReSharper disable once InvertIf
       if (applyChildren)
         foreach (var child in p.children)
-          if (child != null)
-            SetAutoStrut(p: child, asm: asm, applyChildren: true);
+          SetPartOptions(p: child, autoStrutMode: autoStrutMode, isRoboticHierarchy: isRoboticHierarchy, applyChildren: true);
+    }
+
+    /// <summary>
+    ///   Applies the part options.
+    /// </summary>
+    /// <param name="p">The p.</param>
+    /// <param name="autoStrutMode">The automatic strut mode.</param>
+    /// <param name="sameVesselInteraction">if set to <c>true</c> [same vessel interaction].</param>
+    /// <param name="applySymmetry">if set to <c>true</c> [apply symmetry].</param>
+    private void ApplyPartOptions(Part p, Part.AutoStrutMode autoStrutMode, bool sameVesselInteraction, bool applySymmetry)
+    {
+      p.autoStrutMode = autoStrutMode;
+      p.UpdateAutoStrut();
+      p.rigidAttachment = Settings.Instance.RigidAttachment;
+      p.ApplyRigidAttachment();
+      p.SetSameVesselCollision(value: sameVesselInteraction);
+
+      // ReSharper disable once InvertIf
+      if (applySymmetry)
+        foreach (var symmetryCounterpart in p.symmetryCounterparts)
+          ApplyPartOptions(p: symmetryCounterpart, autoStrutMode: autoStrutMode, sameVesselInteraction: sameVesselInteraction, applySymmetry: false);
+    }
+
+
+    /// <summary>
+    ///   Resets the part options.
+    /// </summary>
+    /// <param name="p">The p.</param>
+    /// <param name="applyChildren">if set to <c>true</c> [apply children].</param>
+    /// <param name="applySymmetry">if set to <c>true</c> [apply symmetry].</param>
+    private void ResetPartOptions(Part p, bool applyChildren, bool applySymmetry)
+    {
+      if (p == null) return;
+      var autoStrutMode = p.partInfo.partPrefab.autoStrutMode;
+      DebugLog(m: $"Reverting AutoStrut to: {autoStrutMode}");
+
+      p.autoStrutMode = autoStrutMode;
+      p.UpdateAutoStrut();
+      p.rigidAttachment = p.partInfo.partPrefab.rigidAttachment;
+      p.ApplyRigidAttachment();
+      p.SetSameVesselCollision(value: p.partInfo.partPrefab.sameVesselCollision);
+
+      if (applySymmetry)
+        foreach (var counterpart in p.symmetryCounterparts)
+          ResetPartOptions(p: counterpart, applyChildren: applyChildren, applySymmetry: false);
+
+      // ReSharper disable once InvertIf
+      if (applyChildren)
+        foreach (var child in p.children)
+          ResetPartOptions(p: child, applyChildren: true, applySymmetry: true);
     }
   }
 }

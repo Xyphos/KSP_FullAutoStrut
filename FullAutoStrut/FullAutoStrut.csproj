@@ -7,7 +7,7 @@
     <ProjectGuid>{648342FF-263F-4D06-AE63-148C2D832A61}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>FullAutoStrut</RootNamespace>
+    <RootNamespace>XyphosAerospace</RootNamespace>
     <AssemblyName>FullAutoStrut</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -54,6 +54,7 @@
     <Compile Include="Extensions.cs" />
     <Compile Include="FullAutoStrut.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Settings.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

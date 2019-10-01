@@ -21,12 +21,18 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
+using System;
+using System.Reflection;
 using System.Text.RegularExpressions;
 
-namespace FullAutoStrut
+namespace XyphosAerospace
 {
   public static class Extensions
   {
+    private static void DebugLog(this Exception e) => FullAutoStrut.DebugLog(m: e);
+    private static void DebugLog(object         m) => FullAutoStrut.DebugLog(m: m);
+
+
     public static bool ContainsRegex(
         this PartModuleList partModuleList,
         string              pattern,
@@ -39,5 +45,21 @@ namespace FullAutoStrut
 
       return false;
     }
+
+
+    /// <summary>
+    /// Determines whether this instance is robotic.
+    /// </summary>
+    /// <param name="p">The p.</param>
+    /// <returns>
+    ///   <c>true</c> if the specified p is robotic; otherwise, <c>false</c>.
+    /// </returns>
+    /// <remarks>This method is compatible with Infernal Robotics instead of just Stock Robotics.</remarks>
+    public static bool IsRoboticCompatible(this Part p) => p.Modules.ContainsRegex(pattern: "^ModuleRobotic(?:Rotation)?Servo|^MuMechToggle");
+
+    public static void DrawAutoStrutLine(this Part p)
+      => p.GetType().GetMethod(name: "DrawAutoStrutLine", bindingAttr: BindingFlags.Instance | BindingFlags.IgnoreCase)?.Invoke(obj: p, parameters: null);
+
+    public static void SetSameVesselCollision(this Part p, bool value) => p.Fields[fieldName: "sameVesselCollision"].SetValue(newValue: value, host: p);
   }
 }
